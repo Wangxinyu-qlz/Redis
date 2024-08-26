@@ -51,7 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		//符合，生成验证码
 		String code = RandomUtil.randomNumbers(6);
 		//save to redis  set key value ex 120
-		stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY + phone, code, 2, TimeUnit.MINUTES);
+		stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY + phone, code, LOGIN_CODE_TTL, TimeUnit.MINUTES);
 		//打印日志
 		log.info("短信验证码发送成功，验证码: {}", code);
 		//发送

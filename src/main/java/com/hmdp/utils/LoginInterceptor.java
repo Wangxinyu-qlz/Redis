@@ -57,7 +57,7 @@ public class LoginInterceptor implements HandlerInterceptor {
 		UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
 		//save to ThreadLocal
 		UserHolder.saveUser(userDTO);
-		//refresh token's expireTime
+		//TODO refresh token's expireTime
 		stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.SECONDS);
 		//let pass
 		return true;
