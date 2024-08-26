@@ -14,8 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
 
-import static com.hmdp.utils.RedisConstants.CACHE_SHOP_KEY;
-import static com.hmdp.utils.RedisConstants.CACHE_SHOP_TTL;
+import static com.hmdp.utils.RedisConstants.*;
 
 /**
  * <p>
@@ -35,15 +34,22 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		//query shop cache from redis
 		String shopJson = stringRedisTemplate.opsForValue().get(key);
 		//if exist
+		//isNotBlank: null  ""  空格、全角空格、制表符、换行符，等不可见字符
 		if (StrUtil.isNotBlank(shopJson)) {
 			//return
 			Shop shop = JSONUtil.toBean(shopJson, Shop.class);
 			return Result.ok(shop);
 		}
+		//追加判断是否为""
+		if (shopJson != null && shopJson.equals("")) {
+			return Result.fail("店铺不存在");
+		}
 		//if not exist, query DB by ID
 		Shop shop = getById(id);
 		//if not exist, return error
 		if (shop == null) {
+			//解决缓存穿透：缓存空数据，设置较短的过期时间
+			stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
 			return Result.fail("店铺不存在！");
 		}
 		//set expireTime
