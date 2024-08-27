@@ -54,34 +54,38 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 	}
 
 	@Transactional
-	public synchronized Result createVoucherOrder(Long voucherId) {
+	public Result createVoucherOrder(Long voucherId) {
 		//一人一单
 		Long userId = UserHolder.getUser().getId();
-		Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
-		if (count.compareTo(0) > 0) {
-			return Result.fail("您已经购买过了");
-		}
-		//创建订单
-		VoucherOrder voucherOrder = new VoucherOrder();
-		long orderId = redisIdWorker.nextId("order");
-		voucherOrder.setId(orderId);
-		voucherOrder.setUserId(userId);
-		voucherOrder.setVoucherId(voucherId);
-		//写入数据库
-		save(voucherOrder);
+		//给用户id加锁，根据id的值解锁，缩小锁的范围
+		//String是不可变对象
+		synchronized (userId.toString().intern()) {
+			Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+			if (count.compareTo(0) > 0) {
+				return Result.fail("您已经购买过了");
+			}
+			//创建订单
+			VoucherOrder voucherOrder = new VoucherOrder();
+			long orderId = redisIdWorker.nextId("order");
+			voucherOrder.setId(orderId);
+			voucherOrder.setUserId(userId);
+			voucherOrder.setVoucherId(voucherId);
+			//写入数据库
+			save(voucherOrder);
 
-		//扣减库存
-		//解决超卖
-		//乐观锁：查库存，扣减库存，再次比较库存是否还有，有再提交
-		boolean success = seckillVoucherService.update().
-				setSql("stock = stock - 1")
-				.eq("voucher_id", voucherId)
-				.gt("stock", 0)
-				.update();
-		if (!success) {
-			return Result.fail("扣减失败");
+			//扣减库存
+			//乐观锁：查库存，扣减库存，再次比较库存是否还有，有再提交
+			boolean success = seckillVoucherService.update().
+					setSql("stock = stock - 1")
+					.eq("voucher_id", voucherId)
+					.gt("stock", 0)
+					.update();
+			if (!success) {
+				return Result.fail("扣减失败");
+			}
+
+			return Result.ok(orderId);
 		}
 
-		return Result.ok(orderId);
 	}
 }
