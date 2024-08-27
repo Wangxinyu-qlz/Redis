@@ -21,7 +21,9 @@ class HmDianPingApplicationTests {
 	private RedisIdWorker redisIdWorker;
 	@Test
 	void testSaveShop() {
-			service.saveShop2Redis(1L, 10L);
+		for (int i = 0; i < 15; i++) {
+			service.saveShop2Redis((long)(i+1), 10L);
+		}
 	}
 
 	@Test
