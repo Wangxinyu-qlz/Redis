@@ -33,6 +33,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 		//get token from request header
+		//和前端沟通这个字段的名字
 		String token = request.getHeader("authorization");
 		//check if token is null
 		if (StrUtil.isBlank(token)) {
