@@ -9,6 +9,7 @@ import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,7 +55,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		//给用户id加锁，根据id的值解锁，缩小锁的范围
 		//String是不可变对象
 		synchronized (userId.toString().intern()) {
-			return createVoucherOrder(voucherId);
+			IVoucherOrderService proxy = (IVoucherOrderService)AopContext.currentProxy();
+			return proxy.createVoucherOrder(voucherId);
 		}
 	}
 
