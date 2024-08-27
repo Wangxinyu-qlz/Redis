@@ -54,8 +54,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 			Shop shop = JSONUtil.toBean(shopJson, Shop.class);
 			return Result.ok(shop);
 		}
-		//追加判断是否为""
-		//解决缓存穿透
+		//缓存击穿：追加判断是否为""
 		if (shopJson != null && shopJson.equals("")) {
 			return Result.fail("店铺不存在");
 		}
@@ -102,7 +101,6 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		if (id == null) {
 			return Result.fail("商铺id为空");
 		}
-		//更新数据库 -> 删除缓存
 		//update DB
 		updateById(shop);
 	    //del redis
