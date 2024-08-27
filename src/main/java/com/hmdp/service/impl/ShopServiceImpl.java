@@ -2,9 +2,11 @@ package com.hmdp.service.impl;
 
 import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
+import com.hmdp.entity.RedisData;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
@@ -13,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
@@ -30,65 +35,50 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 	@Resource
 	private StringRedisTemplate stringRedisTemplate;
 
-	//获取互斥锁
+	//get mutual exclusion lock
 	private boolean tryLock(String key) {
 		Boolean aBoolean = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
 		//TODO 警惕拆箱空指针
 		return BooleanUtil.isTrue(aBoolean);
 	}
 
-	//释放互斥锁
+	//release mutual exclusion lock
 	private void unlock(String key) {
 		stringRedisTemplate.delete(key);
 	}
 
+	//logical expire 缓存击穿
 	@Override
 	public Result queryShopById(Long id) {
+		ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 		String key = CACHE_SHOP_KEY + id;
-		//query shop cache from redis
 		String shopJson = stringRedisTemplate.opsForValue().get(key);
-		//if exist
-		//isNotBlank: null  ""  空格、全角空格、制表符、换行符，等不可见字符
-		if (StrUtil.isNotBlank(shopJson)) {
-			//return
-			Shop shop = JSONUtil.toBean(shopJson, Shop.class);
+		if(StrUtil.isBlank(shopJson)) {
+			return Result.fail("店铺信息不存在");
+		}
+		RedisData redisData = JSONUtil.toBean(shopJson, RedisData.class);
+		//还需要再转换一次
+		Shop shop = JSONUtil.toBean((JSONObject) redisData.getData(), Shop.class);
+		LocalDateTime expireTime = redisData.getExpireTime();
+		//not expired
+		if(expireTime.isAfter(LocalDateTime.now())) {
 			return Result.ok(shop);
 		}
-		//缓存击穿：追加判断是否为""
-		if (shopJson != null && shopJson.equals("")) {
-			return Result.fail("店铺不存在");
-		}
-
-		//TODO 实现缓存重建，解决缓存击穿
-		//获取互斥锁
-		String lock = LOCK_SHOP_KEY + id;
-		Shop shop = null;
-		//TODO 抛异常的情况下，也需要释放锁，在finally中执行释放锁的逻辑
-		try {
-			boolean triedLock = tryLock(lock);
-			//判断是否获取成功
-			//失败，休眠并重试
-			if (!triedLock) {
-				Thread.sleep(200);
-				//重试
-				return queryShopById(id);
-			}
-			//成功，根据id查询数据库
-			//if not exist, query DB by ID
-			shop = getById(id);
-			//if not exist, return error
-			if (shop == null) {
-				//解决缓存穿透：缓存空数据，设置较短的过期时间
-				stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
-				return Result.fail("店铺不存在！");
-			}
-			//set expireTime
-			stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), CACHE_SHOP_TTL, TimeUnit.MINUTES);
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		} finally {
-			//释放互斥锁
-			unlock(lock);
+		//expired, get lock and rebuild cache
+		String lockKey = LOCK_SHOP_KEY + id;
+		boolean triedLock = tryLock(lockKey);
+		//get lock
+		if(triedLock) {
+			CACHE_REBUILD_EXECUTOR.submit(() -> {
+				try {
+					//rebuild cache
+					this.saveShop2Redis(id, 20L);
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				} finally {
+					unlock(lockKey);
+				}
+			});
 		}
 		return Result.ok(shop);
 	}
@@ -106,5 +96,14 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 	    //del redis
 		stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
 		return Result.ok();
+	}
+
+	public void saveShop2Redis(Long id, Long expireSeconds) {
+		Shop shop = getById(id);
+		RedisData redisData = new RedisData();
+		redisData.setData(shop);
+		redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
+		//写入redis
+		stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY + id, JSONUtil.toJsonStr(redisData));
 	}
 }
