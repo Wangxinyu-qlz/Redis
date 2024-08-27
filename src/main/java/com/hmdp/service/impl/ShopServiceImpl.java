@@ -55,11 +55,12 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 			return Result.ok(shop);
 		}
 		//追加判断是否为""
+		//解决缓存穿透
 		if (shopJson != null && shopJson.equals("")) {
 			return Result.fail("店铺不存在");
 		}
 
-		//TODO 实现缓存重建
+		//TODO 实现缓存重建，解决缓存击穿
 		//获取互斥锁
 		String lock = LOCK_SHOP_KEY + id;
 		Shop shop = null;
@@ -101,6 +102,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		if (id == null) {
 			return Result.fail("商铺id为空");
 		}
+		//更新数据库 -> 删除缓存
 		//update DB
 		updateById(shop);
 	    //del redis
