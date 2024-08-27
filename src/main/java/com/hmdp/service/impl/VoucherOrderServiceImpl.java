@@ -51,6 +51,17 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 			return Result.fail("您来晚了");
 		}
 
+		Long userId = UserHolder.getUser().getId();
+
+		//创建订单
+		VoucherOrder voucherOrder = new VoucherOrder();
+		long orderId = redisIdWorker.nextId("order");
+		voucherOrder.setId(orderId);
+		voucherOrder.setUserId(userId);
+		voucherOrder.setVoucherId(voucherId);
+		//写入数据库
+		save(voucherOrder);
+
 		//扣减库存
 		//解决超卖
 		//乐观锁：查库存，扣减库存，再次比较库存是否还有，有再提交
@@ -59,21 +70,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 				.eq("voucher_id", voucherId)
 				.gt("stock", 0)
 				.update();
-
 		if(!success) {
 			return Result.fail("扣减失败");
 		}
-		//创建订单
-		VoucherOrder voucherOrder = new VoucherOrder();
-		long orderId = redisIdWorker.nextId("order");
-		voucherOrder.setId(orderId);
-		Long userId = UserHolder.getUser().getId();
-		voucherOrder.setUserId(userId);
-		voucherOrder.setVoucherId(voucherId);
-		//写入数据库
-		save(voucherOrder);
+
 
 		return Result.ok(orderId);
-
 	}
 }
