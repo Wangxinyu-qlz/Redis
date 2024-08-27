@@ -50,9 +50,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		if(stock < 1) {
 			return Result.fail("您来晚了");
 		}
-
+		//一人一单
 		Long userId = UserHolder.getUser().getId();
-
+		Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+		if (count.compareTo(0) > 0) {
+			return Result.fail("您已经购买过了");
+		}
 		//创建订单
 		VoucherOrder voucherOrder = new VoucherOrder();
 		long orderId = redisIdWorker.nextId("order");
