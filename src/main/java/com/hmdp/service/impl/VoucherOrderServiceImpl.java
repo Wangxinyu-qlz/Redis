@@ -1,12 +1,12 @@
 package com.hmdp.service.impl;
 
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 	@Resource
 	private RedisIdWorker redisIdWorker;
 	@Override
-	@Transactional
 	public Result seckillVoucher(Long voucherId) {
 		//查询优惠券
 		SeckillVoucher seckillVoucher = seckillVoucherService.getById(voucherId);
@@ -50,6 +49,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		if(stock < 1) {
 			return Result.fail("您来晚了");
 		}
+
+		return createVoucherOrder(voucherId);
+	}
+
+	@Transactional
+	public synchronized Result createVoucherOrder(Long voucherId) {
 		//一人一单
 		Long userId = UserHolder.getUser().getId();
 		Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
@@ -73,10 +78,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 				.eq("voucher_id", voucherId)
 				.gt("stock", 0)
 				.update();
-		if(!success) {
+		if (!success) {
 			return Result.fail("扣减失败");
 		}
-
 
 		return Result.ok(orderId);
 	}
