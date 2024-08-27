@@ -52,10 +52,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		}
 
 		//扣减库存
-		//会出现超卖问题
+		//解决超卖
+		//乐观锁：查库存，扣减库存，提交前再次查看库存有没有变，变了说明其他线程在操作，不提交。
+		//100个线程同时操作只有1个能成功，导致少买
 		boolean success = seckillVoucherService.update().
-				setSql("stock = stock - 1").
-				eq("voucher_id", voucherId).update();
+				setSql("stock = stock - 1")
+				.eq("voucher_id", voucherId)
+				//使用库存判断
+				//where id = ? and stock = ?
+				.eq("stock", seckillVoucher.getStock())
+				.update();
 
 		if(!success) {
 			return Result.fail("扣减失败");
