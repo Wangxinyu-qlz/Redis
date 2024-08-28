@@ -95,6 +95,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		updateById(shop);
 	    //del redis
 		stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
+		//使用线程池，异步再次删除缓存
 		return Result.ok();
 	}
 
@@ -103,7 +104,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		RedisData redisData = new RedisData();
 		redisData.setData(shop);
 		redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
-		//写入redis
+		//write to redis
 		stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY + id, JSONUtil.toJsonStr(redisData));
 	}
 }
