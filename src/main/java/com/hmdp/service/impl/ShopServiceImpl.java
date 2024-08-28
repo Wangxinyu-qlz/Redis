@@ -37,7 +37,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
 	//get mutual exclusion lock
 	private boolean tryLock(String key) {
-		Boolean aBoolean = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
+		Boolean aBoolean = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", LOCK_SHOP_TTL, TimeUnit.SECONDS);
 		//TODO 警惕拆箱空指针
 		return BooleanUtil.isTrue(aBoolean);
 	}
