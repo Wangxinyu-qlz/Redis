@@ -9,17 +9,24 @@ import org.springframework.transaction.support.TransactionSynchronization;
  * @description:
  **/
 public class DoTransactionCompletion implements TransactionSynchronization {
-	private Runnable runnable;
+	private Runnable onSuccess;
+	private Runnable onFailure;
 
-	public DoTransactionCompletion(Runnable runnable) {
-		this.runnable = runnable;
+	public DoTransactionCompletion(Runnable onSuccess, Runnable onFailure) {
+		this.onSuccess = onSuccess;
+		this.onFailure = onFailure;
 	}
 
 	@Override
 	public void afterCompletion(int status) {
-		//只有事务提交成功的时候，才做处理
-		if(status == TransactionSynchronization.STATUS_COMMITTED) {
-			this.runnable.run();
+		if (status == TransactionSynchronization.STATUS_COMMITTED) {
+			if (onSuccess != null) {
+				onSuccess.run();
+			}
+		} else if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+			if (onFailure != null) {
+				onFailure.run();
+			}
 		}
 	}
 }
