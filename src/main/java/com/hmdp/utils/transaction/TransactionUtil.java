@@ -16,10 +16,9 @@ public class TransactionUtil {
                     new DoTransactionCompletion(onSuccess, onFailure)
             );
         } else {
-            // 如果没有事务活动，可以直接执行操作或抛出异常
-            if (onFailure != null) {
-                onFailure.run();
-            }
+            // 如果没有事务活动，可以直接抛出异常
+            // 具体结合实际业务
+            throw new IllegalStateException("没有活动的事务");
         }
     }
 }
