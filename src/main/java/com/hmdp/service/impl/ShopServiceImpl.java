@@ -85,7 +85,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 	}
 
 	@Override
-	@Transactional(timeout = 6)
+	@Transactional()
 	//TODO 无法保证本地数据库和redis之间的事务同步
 	public Result update(Shop shop) {
 		Long id = shop.getId();
@@ -93,21 +93,24 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 			return Result.fail("商铺id为空");
 		}
 
-		// 模拟抛出异常以触发事务回滚
-		try {
-			System.out.println("Starting sleep...");
-			Thread.sleep(5000); // 模拟长时间操作
-		} catch (InterruptedException e) {
-			throw new RuntimeException("Interrupted Exception", e);
-		}
-		//写入数据库
-		TransactionUtil.doAfterTransact(() -> {
-			//执行业务
-			System.out.println("run sth...");
-		});
-
 		//update DB
 		updateById(shop);
+
+		//更新完成
+		//start run sth...
+		//task over...
+		//但是前端还是在等待这里完成
+		TransactionUtil.doAfterTransact(() -> {
+			//执行业务
+			System.out.println("start run sth...");
+			try {
+				Thread.sleep(5000); // 模拟长时间操作
+			} catch (InterruptedException e) {
+				throw new RuntimeException("Interrupted Exception", e);
+			}
+			System.out.println("task over...");
+		});
+
 	    //del redis
 		stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
 		System.out.println("更新完成");
