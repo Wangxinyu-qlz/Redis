@@ -21,10 +21,11 @@ spring:
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
   rabbitmq:
-    username: guest
-    password: guest
+    username: qlz
+    password: 123456
     host: 127.0.0.1
-    port: 15672
+    virtual-host: /  # 这里需要写成rabbitmq控制台有的虚拟host
+    port: 5672
     publisher-confirm-type: correlated  # 配置发布者确认模式为“关联模式（correlated）”，允许发送者获取消息的投递状态和消息确认情况。
     publisher-returns: true  # 启用发布者返回功能。当消息无法路由到队列时，RabbitMQ会将消息返回给发送者。
     listener:
@@ -34,6 +35,7 @@ spring:
         prefetch: 1  # 配置消费者一次预取的消息数量，设置为1表示每次只预取一条消息。这个配置可以控制消息处理的公平性和流量控制。
         auto-startup: true  # 配置监听器自动启动，设置为true表示应用启动时监听器会自动启动。
         default-requeue-rejected: true  # 当消息被拒绝时，是否将其重新放回队列。设置为true表示拒绝的消息会被重新入队。
+        acknowledge-mode: auto  # 自动应答
     template:
       retry:
         enabled: true  # 启用重试机制，设置为true表示在发送消息失败时会进行重试。
