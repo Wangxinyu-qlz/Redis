@@ -10,7 +10,6 @@ import com.hmdp.entity.RedisData;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
-import com.hmdp.utils.transaction.TransactionUtil;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +18,7 @@ import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
@@ -85,12 +85,19 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 	}
 
 	@Override
-	@Transactional()
+	@Transactional(timeout = 2)
 	//TODO 无法保证本地数据库和redis之间的事务同步
 	public Result update(Shop shop) {
 		Long id = shop.getId();
 		if (id == null) {
 			return Result.fail("商铺id为空");
+		}
+		//模拟超时
+		//TODO 如果放在数据库操作之后，超时不会回滚
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException();
 		}
 
 		//update DB
@@ -100,21 +107,26 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 		//start run sth...
 		//task over...
 		//但是前端还是在等待这里完成
-		TransactionUtil.doAfterTransact(() -> {
-			//执行业务
-			System.out.println("start run sth...");
-			try {
-				Thread.sleep(5000); // 模拟长时间操作
-			} catch (InterruptedException e) {
-				throw new RuntimeException("Interrupted Exception", e);
-			}
-			System.out.println("task over...");
-		});
+		//TransactionUtil.doAfterTransact(
+		//		() -> {
+		//			//执行A计划
+		//			System.out.println("start run sth...");
+		//			try {
+		//				Thread.sleep(5000);
+		//			} catch (InterruptedException e) {
+		//				throw new RuntimeException("Interrupted Exception", e);
+		//			}
+		//			System.out.println("task over...");
+		//		},
+		//		() -> {
+		//			//执行B计划
+		//			System.out.println("事务失败回滚了，执行B计划");
+		//
+		//});
 
 	    //del redis
 		stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
-		System.out.println("更新完成");
-		//使用线程池，异步再次删除缓存
+		//TODO 使用线程池，异步再次删除缓存
 		return Result.ok();
 	}
 
