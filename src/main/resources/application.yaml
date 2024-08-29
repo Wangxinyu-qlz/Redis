@@ -24,7 +24,7 @@ spring:
     username: guest
     password: guest
     host: 127.0.0.1
-    port: 5672
+    port: 15672
     publisher-confirm-type: correlated  # 配置发布者确认模式为“关联模式（correlated）”，允许发送者获取消息的投递状态和消息确认情况。
     publisher-returns: true  # 启用发布者返回功能。当消息无法路由到队列时，RabbitMQ会将消息返回给发送者。
     listener:
