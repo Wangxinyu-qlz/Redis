@@ -10,6 +10,7 @@ import com.hmdp.entity.RedisData;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
+import com.hmdp.utils.transaction.TransactionUtil;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,17 +85,32 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 	}
 
 	@Override
-	@Transactional
+	@Transactional(timeout = 6)
 	//TODO 无法保证本地数据库和redis之间的事务同步
 	public Result update(Shop shop) {
 		Long id = shop.getId();
 		if (id == null) {
 			return Result.fail("商铺id为空");
 		}
+
+		// 模拟抛出异常以触发事务回滚
+		try {
+			System.out.println("Starting sleep...");
+			Thread.sleep(5000); // 模拟长时间操作
+		} catch (InterruptedException e) {
+			throw new RuntimeException("Interrupted Exception", e);
+		}
+		//写入数据库
+		TransactionUtil.doAfterTransact(() -> {
+			//执行业务
+			System.out.println("run sth...");
+		});
+
 		//update DB
 		updateById(shop);
 	    //del redis
 		stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
+		System.out.println("更新完成");
 		//使用线程池，异步再次删除缓存
 		return Result.ok();
 	}

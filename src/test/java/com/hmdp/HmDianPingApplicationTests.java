@@ -2,12 +2,15 @@ package com.hmdp;
 
 import com.hmdp.service.IShopService;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.transaction.TransactionUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.concurrent.CountDownLatch;
@@ -68,5 +71,25 @@ class HmDianPingApplicationTests {
 				lock.unlock();
 			}
 		}
+	}
+
+	@Test
+	//并不会阻止因超时而导致的事务回滚。事务超时是由事务管理器在超时后强制回滚的，而不是由测试框架的回滚设置控制的。
+	//禁止回滚 spring test中，@Transactional使得事务在测试方法执行后回滚，防止对数据库中的数据造成持久的更改
+	@Rollback(false)
+	@Transactional()
+	void testTx() throws RuntimeException {
+		// 模拟抛出异常以触发事务回滚
+		try {
+			System.out.println("Starting sleep...");
+			Thread.sleep(5000); // 模拟长时间操作
+		} catch (InterruptedException e) {
+			throw new RuntimeException("Interrupted Exception", e);
+		}
+		//写入数据库
+		TransactionUtil.doAfterTransact(() -> {
+			//执行业务
+			System.out.println("run sth...");
+		});
 	}
 }
