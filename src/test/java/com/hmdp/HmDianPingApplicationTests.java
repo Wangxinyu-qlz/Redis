@@ -8,6 +8,7 @@ import org.junit.runner.RunWith;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,28 +74,35 @@ class HmDianPingApplicationTests {
 		}
 	}
 
+	@Resource
+	private JdbcTemplate jdbcTemplate;
+
 	@Test
 	//并不会阻止因超时而导致的事务回滚。事务超时是由事务管理器在超时后强制回滚的，而不是由测试框架的回滚设置控制的。
 	//禁止回滚 spring test中，@Transactional使得事务在测试方法执行后回滚，防止对数据库中的数据造成持久的更改
 	@Rollback(false)
-	@Transactional()
+	@Transactional(timeout = 1)
 	void testTx() throws RuntimeException {
+		//必须写在数据库提交之前，否则计划B不会执行
+		//必须先注册事务同步，确保它在事务回滚时能被调用
+		TransactionUtil.doAfterTransact(
+				() -> {
+					//计划A
+					System.out.println("===================提交成功run sth...=======================");
+				},
+				//计划B
+				() -> {
+					System.out.println("======================发生异常，事务回滚====================");
+				});
 		// 模拟抛出异常以触发事务回滚
 		try {
 			System.out.println("Starting sleep...");
-			Thread.sleep(5000); // 模拟长时间操作
+			Thread.sleep(2000); // 模拟长时间操作
 		} catch (InterruptedException e) {
 			throw new RuntimeException("Interrupted Exception", e);
 		}
-		//写入数据库
-		TransactionUtil.doAfterTransact(
-			() -> {
-			//计划A
-			System.out.println("run sth...");
-				},
-			//计划B
-			() -> {
 
-				});
+		jdbcTemplate.update("update tb_user set nick_name ='小宇同学' where id = 1");
+
 	}
 }
