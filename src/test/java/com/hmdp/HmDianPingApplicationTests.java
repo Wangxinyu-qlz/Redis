@@ -1,6 +1,12 @@
 package com.hmdp;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
+import cn.hutool.core.lang.UUID;
+import com.hmdp.dto.UserDTO;
+import com.hmdp.entity.User;
 import com.hmdp.service.IShopService;
+import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.transaction.TransactionUtil;
 import org.junit.jupiter.api.Test;
@@ -8,16 +14,26 @@ import org.junit.runner.RunWith;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import static com.hmdp.utils.RedisConstants.LOGIN_USER_KEY;
+import static com.hmdp.utils.RedisConstants.LOGIN_USER_TTL;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = HmDianPingApplication.class)
@@ -104,5 +120,48 @@ class HmDianPingApplicationTests {
 
 		jdbcTemplate.update("update tb_user set nick_name ='小宇同学' where id = 1");
 
+	}
+
+	@Resource
+	private StringRedisTemplate stringRedisTemplate;
+	@Resource
+	private IUserService userService;
+
+	@Test
+	public void testGetAll() {
+		List<User> users = userService.list();
+		users.forEach(
+				user -> {
+					//随机生成token,作为登录令牌
+					String token = UUID.randomUUID().toString(true);
+					//将User对象转化为HashMap存储
+					UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+					File file = new File("src/main/resources/tokens.txt");
+					FileOutputStream output = null;
+					try {
+						output = new FileOutputStream(file, true);
+						byte[] bytes = token.getBytes();
+						output.write(bytes);
+						output.write("\r\n".getBytes());
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					} finally {
+						try {
+							output.close();
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					}
+					Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
+							CopyOptions.create()
+									.setIgnoreNullValue(true)
+									.setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString()));
+					//存储
+					String tokenKey = LOGIN_USER_KEY + token;
+					stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
+					//设置token有效期
+					stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
+				}
+		);
 	}
 }

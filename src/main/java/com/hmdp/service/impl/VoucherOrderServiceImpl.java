@@ -91,15 +91,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		if (count.compareTo(0) > 0) {
 			return Result.fail("您已经购买过了");
 		}
-		//创建订单
-		VoucherOrder voucherOrder = new VoucherOrder();
-		long orderId = redisIdWorker.nextId("order");
-		voucherOrder.setId(orderId);
-		voucherOrder.setUserId(userId);
-		voucherOrder.setVoucherId(voucherId);
-		//写入数据库
-		save(voucherOrder);
 
+		//TODO 扣减库存和 创建订单的顺序不能变，否则会出现库存正常订单数量超出（一倍）
 		//扣减库存
 		//乐观锁：查库存，扣减库存，再次比较库存是否还有，有再提交
 		boolean success = seckillVoucherService.update().
@@ -110,6 +103,15 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		if (!success) {
 			return Result.fail("扣减失败");
 		}
+
+		//创建订单
+		VoucherOrder voucherOrder = new VoucherOrder();
+		long orderId = redisIdWorker.nextId("order");
+		voucherOrder.setId(orderId);
+		voucherOrder.setUserId(userId);
+		voucherOrder.setVoucherId(voucherId);
+		//写入数据库
+		save(voucherOrder);
 
 		return Result.ok(orderId);
 	}
