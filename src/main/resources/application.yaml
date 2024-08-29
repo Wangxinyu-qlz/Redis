@@ -20,6 +20,28 @@ spring:
         time-between-eviction-runs: 10s
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
+  rabbitmq:
+    username: guest
+    password: guest
+    host: 127.0.0.1
+    port: 5672
+    publisher-confirm-type: correlated  # 配置发布者确认模式为“关联模式（correlated）”，允许发送者获取消息的投递状态和消息确认情况。
+    publisher-returns: true  # 启用发布者返回功能。当消息无法路由到队列时，RabbitMQ会将消息返回给发送者。
+    listener:
+      simple:
+        concurrency: 10  # 配置并发消费者数量，设置为10表示同时有10个并发消费者处理消息。
+        max-concurrency: 10  # 配置最大并发消费者数量，设置为10表示最多可以有10个并发消费者。
+        prefetch: 1  # 配置消费者一次预取的消息数量，设置为1表示每次只预取一条消息。这个配置可以控制消息处理的公平性和流量控制。
+        auto-startup: true  # 配置监听器自动启动，设置为true表示应用启动时监听器会自动启动。
+        default-requeue-rejected: true  # 当消息被拒绝时，是否将其重新放回队列。设置为true表示拒绝的消息会被重新入队。
+    template:
+      retry:
+        enabled: true  # 启用重试机制，设置为true表示在发送消息失败时会进行重试。
+        initial-interval: 1000ms  # 配置第一次重试的时间间隔，设置为1000ms（即1秒）。
+        max-attempts: 3  # 配置最大重试次数，设置为3表示最多重试三次。
+        max-interval: 10000ms  # 配置重试的最大间隔时间，设置为10000ms（即10秒）。
+        multiplier: 1  # 配置重试间隔的倍数，设置为1表示每次重试的间隔时间不会改变。如果设置为大于1的值，每次重试的间隔时间将逐次增加。
+
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
 logging:

@@ -1,9 +1,11 @@
 package com.hmdp.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
+import com.hmdp.rabbitmq.MQSender;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisIdWorker;
@@ -14,7 +16,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.Collections;
@@ -39,6 +40,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 	private StringRedisTemplate stringRedisTemplate;
 	@Autowired
 	private RedissonClient redissonClient;
+	@Resource
+	private MQSender mqSender;
 
 	private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
 
@@ -64,42 +67,19 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 		if(r != 0) {
 			return Result.fail(r==1?"库存不足":"不能重复下单");
 		}
-		//TODO 保存到RabbitMQ
 
-		//返回订单id
-		return Result.ok(orderId);
-	}
-
-	@Transactional
-	public Result createVoucherOrder(Long voucherId) {
-		//一人一单
-		Long userId = UserHolder.getUser().getId();
-		Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
-		if (count.compareTo(0) > 0) {
-			return Result.fail("您已经购买过了");
-		}
-
-		//TODO 扣减库存和 创建订单的顺序不能变，否则会出现库存正常订单数量超出（一倍）
-		//扣减库存
-		//乐观锁：查库存，扣减库存，再次比较库存是否还有，有再提交
-		boolean success = seckillVoucherService.update().
-				setSql("stock = stock - 1")
-				.eq("voucher_id", voucherId)
-				.gt("stock", 0)
-				.update();
-		if (!success) {
-			return Result.fail("扣减失败");
-		}
-
+		//发送消息到秒杀队列
 		//创建订单
 		VoucherOrder voucherOrder = new VoucherOrder();
-		long orderId = redisIdWorker.nextId("order");
 		voucherOrder.setId(orderId);
+		//用户id
 		voucherOrder.setUserId(userId);
+		//秒杀券id
 		voucherOrder.setVoucherId(voucherId);
-		//写入数据库
-		save(voucherOrder);
+        //将信息放入MQ中
+        mqSender.sendSeckillMessage(JSON.toJSONString(voucherOrder));
 
+		//返回订单id
 		return Result.ok(orderId);
 	}
 }
