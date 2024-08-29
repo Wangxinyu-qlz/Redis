@@ -87,9 +87,14 @@ class HmDianPingApplicationTests {
 			throw new RuntimeException("Interrupted Exception", e);
 		}
 		//写入数据库
-		TransactionUtil.doAfterTransact(() -> {
-			//执行业务
+		TransactionUtil.doAfterTransact(
+			() -> {
+			//计划A
 			System.out.println("run sth...");
-		});
+				},
+			//计划B
+			() -> {
+
+				});
 	}
 }
