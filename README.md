@@ -17,7 +17,7 @@
 ##### &emsp;&emsp;&emsp;&emsp;5.3.8. RabbitMQ优化异步秒杀
 ##### &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;5.3.8.1. 使用lua脚本保证 [判断库存+一人一单+扣减库存] 的原子性
 ##### &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;5.3.8.2. RabbitMQ实现异步秒杀，实现削峰
-##### &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;5.3.8.3. 使用Jmeter测试异步秒杀的性能提升(连续测试10次，去掉第一次，粗略估计均值)，`master`分支为异步秒杀，`同步秒杀`分支为普通秒杀，先切换分支，使用Postman添加秒杀券，使用JMeter测试
+##### &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;5.3.8.3. 使用Jmeter测试异步秒杀的性能提升(连续测试10次，去掉第一次，粗略估计均值)，`master`分支为异步秒杀，`同步秒杀`分支为普通秒杀，先切换分支，然后使用Postman添加秒杀券，最后使用JMeter测试
 | --- | 请求响应平均值 | 请求响应最大值 | 吞吐量tps |
 | --- | --- | --- | --- |
 | 秒杀 | 560 |1700 |460/s |
