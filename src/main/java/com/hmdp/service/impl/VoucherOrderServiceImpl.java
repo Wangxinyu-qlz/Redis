@@ -2,6 +2,7 @@ package com.hmdp.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.common.util.concurrent.RateLimiter;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -42,6 +44,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 	private RedissonClient redissonClient;
 	@Resource
 	private MQSender mqSender;
+	//每秒生成1000个令牌桶
+	private RateLimiter rateLimiter = RateLimiter.create(1000);
 
 	private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
 
@@ -54,6 +58,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 	@Override
 	public Result seckillVoucher(Long voucherId) {
+		if(!rateLimiter.tryAcquire(500, TimeUnit.MICROSECONDS)) {
+			return Result.fail("网络正忙，请稍后重试");
+		}
 		//获取用户
 		Long userId = UserHolder.getUser().getId();
 		long orderId = redisIdWorker.nextId("order");
