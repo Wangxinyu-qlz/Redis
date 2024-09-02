@@ -57,4 +57,4 @@ void testTx() throws RuntimeException {
 }
 ```
 ------
-如果您发现了错误，欢迎指出；如果您有好的建议，欢迎提 issue。
+如果对您有帮助，我很开心；如果您发现了错误/有好的建议，欢迎指出；欢迎提 issue。
